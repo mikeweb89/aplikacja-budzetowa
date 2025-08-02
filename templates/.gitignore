@@ -1,0 +1,10 @@
+# Wirtualne środowisko
+venv/
+
+# Pliki bazy danych
+*.db
+*.sqlite3
+
+# Foldery cache Pythona
+__pycache__/
+*.pyc

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Aplikacja Budżetowa</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.3/dist/slate/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Relief:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        body {
+            font-family: 'Comic Relief', cursive;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">Mój Budżet</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Strona Główna</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('manage_categories') }}">Zarządzaj Kategoriami</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('net_worth_page') }}">Majątek Netto</a>
+                    </li>
+                    <li class="nav-item">
+                      <a class="nav-link" href="{{ url_for('retirement_goal_page') }}">Cel Emerytalny</a>
+                  </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script id="chart-data" type="application/json">{{ {'labels': chart_labels, 'values': chart_values}|tojson }}</script>
+    <script>
+        // (cały kod JavaScript do wykresu pozostaje bez zmian)
+        Chart.register(ChartDataLabels);
+        const chartDataSource = document.getElementById('chart-data');
+        if (chartDataSource) {
+            const chartData = JSON.parse(chartDataSource.textContent);
+            const labels = chartData.labels;
+            const values = chartData.values;
+
+            if (values && values.length > 0) {
+                // Funkcja do generowania losowych, ładnych kolorów
+                const generateColors = (numColors) => {
+                    const colors = [];
+                    for (let i = 0; i < numColors; i++) {
+                        const hue = (i * 360) / numColors;
+                        colors.push(`hsl(${hue}, 70%, 60%)`);
+                    }
+                    return colors;
+                };
+
+                const data = {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Wydatki',
+                        data: values,
+                        backgroundColor: generateColors(labels.length), // Używamy naszej funkcji
+                        hoverOffset: 4
+                    }]
+                };
+
+                const config = {
+                    type: 'pie',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            // Włączamy legendę i konfigurujemy ją
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    padding: 20,
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            },
+                            // Konfiguracja nowych etykiet na wykresie
+                            datalabels: {
+                                formatter: (value, context) => {
+                                    const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    const percentage = (value / total * 100);
+                                    // Nie pokazuj etykiety, jeśli procent jest bardzo mały
+                                    if (percentage < 3) {
+                                        return '';
+                                    }
+                                    return `${context.chart.data.labels[context.dataIndex]}\n${percentage.toFixed(1)}%`;
+                                },
+                                color: '#fff',
+                                textAlign: 'center',
+                                font: {
+                                    weight: 'bold'
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed;
+                                        const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                        const percentage = (value / total * 100).toFixed(1);
+                                        // Zwracamy nowy, sformatowany tekst
+                                        return `${label}: ${value.toFixed(2)} zł (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+
+                new Chart(document.getElementById('myPieChart'), config);
+            }
+        }
+    </script>
+
+</body>
+</html>

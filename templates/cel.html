@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card text-center">
+                <div class="card-header">
+                    <h2>Cel Emerytalny: Droga do Miliona</h2>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">Postęp</h5>
+                    <p class="card-text">
+                        Zebrałeś <strong>{{ "%.2f"|format(zebrane_srodki) }} zł</strong> z celu <strong>{{ "%.2f"|format(cel) }} zł</strong>.
+                    </p>
+                    
+                    <div class="progress" style="height: 30px;" role="progressbar">
+                      <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                           data-width="{{ progres_procent }}">
+                           {{ "%.1f"|format(progres_procent) }}%
+                      </div>
+                    </div>
+                    
+                    <p class="mt-3">Pozostało do zebrania: <strong>{{ "%.2f"|format(pozostalo) }} zł</strong></p>
+                </div>
+                <div class="card-footer text-muted">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <strong>Pozostało czasu:</strong> {{ lata_do_emerytury }} lat ({{ miesiace_do_emerytury }} miesięcy)
+                        </div>
+                        <div class="col-sm-6">
+                            <strong>Sugerowane miesięczne oszczędności:</strong> {{ "%.2f"|format(wymagane_oszczednosci) }} zł
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p class="text-center small mt-2">
+                *Sugerowane oszczędności nie uwzględniają przyszłych zysków z inwestycji.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Set progress bar width from data attribute
+    document.addEventListener('DOMContentLoaded', function() {
+        const progressBar = document.querySelector('.progress-bar');
+        if (progressBar) {
+            const width = progressBar.getAttribute('data-width');
+            progressBar.style.width = width + '%';
+        }
+    });
+</script>
+
+{% endblock %}

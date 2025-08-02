@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Zarządzaj Kategoriami</title>
+</head>
+<body>
+    <h1>Zarządzaj Kategoriami</h1>
+
+    <h2>Dodaj nową kategorię</h2>
+    <form action="{{ url_for('add_category') }}" method="POST">
+        <input type="text" name="nazwa" required>
+        <input type="submit" value="Dodaj">
+    </form>
+
+    <hr>
+
+    <h2>Istniejące kategorie</h2>
+    <ul>
+        {% for kategoria in kategorie %}
+            <li>
+                {{ kategoria['nazwa'] }}
+                <a href="{{ url_for('delete_category', id=kategoria['id']) }}" style="color: red; text-decoration: none;">[x]</a>
+            </li>
+        {% endfor %}
+    </ul>
+    <br>
+    <a href="{{ url_for('index') }}">Wróć na stronę główną</a>
+</body>
+</html>

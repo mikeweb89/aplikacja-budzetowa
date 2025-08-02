@@ -1,0 +1,32 @@
+Instrukcja uruchomienia aplikacji budżetowej:
+
+Rozpakuj plik aplikacja_budzetowa.zip do wybranego folderu.
+
+Upewnij się, że masz zainstalowanego Pythona w wersji 3.8 lub nowszej.
+
+Otwórz terminal (wiersz poleceń) i przejdź do folderu, który właśnie rozpakowałeś, używając komendy cd twoj_folder.
+
+Stwórz i aktywuj wirtualne środowisko:
+
+Wpisz: python -m venv venv
+
+Na Windows: venv\Scripts\activate
+
+Na Mac/Linux: source venv/bin/activate
+
+Zainstaluj wszystkie potrzebne biblioteki za pomocą jednej komendy:
+
+Bash
+
+pip install -r requirements.txt
+Stwórz pustą bazę danych (ten krok robisz tylko raz):
+
+Bash
+
+python init_db.py
+Uruchom aplikację:
+
+Bash
+
+python app.py
+Otwórz przeglądarkę internetową i wejdź na adres: http://127.0.0.1:5000
