@@ -3,6 +3,8 @@ from flask import Flask, render_template, request, url_for, redirect
 import sqlite3
 from datetime import date
 import pandas as pd 
+import webbrowser
+from threading import Timer
 
 app = Flask(__name__)
 
@@ -286,4 +288,12 @@ def retirement_goal_page():
 # ------------------------------------------------
 
 if __name__ == '__main__':
+    # Definiujemy funkcję, która otworzy przeglądarkę
+    def open_browser():
+        webbrowser.open_new('http://127.0.0.1:5000')
+
+    # Używamy Timera, aby dać serwerowi sekundę na start, zanim otworzymy przeglądarkę
+    Timer(1, open_browser).start()
+
+    # Uruchamiamy aplikację (serwer)
     app.run(debug=True)
