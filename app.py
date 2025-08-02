@@ -5,6 +5,7 @@ from datetime import date
 import pandas as pd 
 import webbrowser
 from threading import Timer
+import os
 
 app = Flask(__name__)
 
@@ -288,12 +289,11 @@ def retirement_goal_page():
 # ------------------------------------------------
 
 if __name__ == '__main__':
-    # Definiujemy funkcję, która otworzy przeglądarkę
-    def open_browser():
-        webbrowser.open_new('http://127.0.0.1:5000')
+    # Sprawdzamy, czy serwer nie jest w trybie przeładowania
+    if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
+        def open_browser():
+            webbrowser.open_new('http://127.0.0.1:5000')
+        Timer(1, open_browser).start()
 
-    # Używamy Timera, aby dać serwerowi sekundę na start, zanim otworzymy przeglądarkę
-    Timer(1, open_browser).start()
-
-    # Uruchamiamy aplikację (serwer)
+    # Uruchamiamy aplikację
     app.run(debug=True)
