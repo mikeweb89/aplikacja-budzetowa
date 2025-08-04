@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="text-center">
+        <h1>Raport Bilansu z Ostatnich 12 Miesięcy</h1>
+        <p class="lead text-muted">Zobacz, jak kształtowały się Twoje oszczędności w czasie.</p>
+    </div>
+
+    <div style="width: 90%; margin: 40px auto;">
+        <canvas id="myBarChart"></canvas>
+    </div>
+
+    <script id="chart-data" type="application/json">{{ {'labels': chart_labels, 'values': chart_values}|tojson }}</script>
+    <script>
+        const chartDataSource = document.getElementById('chart-data');
+        if (chartDataSource) {
+            const chartData = JSON.parse(chartDataSource.textContent);
+            const labels = chartData.labels;
+            const values = chartData.values;
+
+            if (values && values.length > 0) {
+                const data = {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Miesięczny Bilans',
+                        data: values,
+                        // Ten fragment sprawia, że słupki są zielone dla dodatniego bilansu i czerwone dla ujemnego
+                        backgroundColor: values.map(value => value >= 0 ? 'rgba(75, 192, 192, 0.6)' : 'rgba(255, 99, 132, 0.6)'),
+                        borderColor: values.map(value => value >= 0 ? 'rgb(75, 192, 192)' : 'rgb(255, 99, 132)'),
+                        borderWidth: 1
+                    }]
+                };
+
+                const config = {
+                    type: 'bar', // <-- ZMIANA: typ wykresu to 'bar' (słupkowy)
+                    data: data,
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true // Oś Y zaczyna się od zera
+                            }
+                        }
+                    }
+                };
+
+                new Chart(document.getElementById('myBarChart'), config);
+            }
+        }
+    </script>
+{% endblock %}

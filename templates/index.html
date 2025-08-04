@@ -32,9 +32,36 @@
         <div class="col-md-5">
             <h2>Podsumowanie miesiąca</h2>
             <ul class="list-group">
-                <li class="list-group-item d-flex justify-content-between align-items-center">Przychody: <strong>{{ "%.2f"|format(total_przychody) }} zł</strong></li>
-                <li class="list-group-item d-flex justify-content-between align-items-center">Wydatki: <strong>{{ "%.2f"|format(total_wydatki) }} zł</strong></li>
-                <li class="list-group-item list-group-item-primary d-flex justify-content-between align-items-center">Bilans: <strong>{{ "%.2f"|format(bilans) }} zł</strong></li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Przychody: 
+                    <strong>{{ "%.2f"|format(total_przychody) }} zł</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Wydatki: 
+                    <div>
+                        {% if roznica_wydatki != 0 %}
+                            {% if roznica_wydatki < 0 %}
+                                <small class="text-success me-2">(✅ {{ "%.2f"|format(roznica_wydatki) }} zł)</small>
+                            {% else %}
+                                <small class="text-danger me-2">(❌ +{{ "%.2f"|format(roznica_wydatki) }} zł)</small>
+                            {% endif %}
+                        {% endif %}
+                        <strong>{{ "%.2f"|format(total_wydatki) }} zł</strong>
+                    </div>
+                </li>
+                <li class="list-group-item list-group-item-primary d-flex justify-content-between align-items-center">
+                    Bilans: 
+                    <div>
+                        {% if roznica_bilans != 0 %}
+                            {% if roznica_bilans > 0 %}
+                                <small class="text-success me-2">(👍 +{{ "%.2f"|format(roznica_bilans) }} zł)</small>
+                            {% else %}
+                                <small class="text-danger me-2">(👎 {{ "%.2f"|format(roznica_bilans) }} zł)</small>
+                            {% endif %}
+                        {% endif %}
+                        <strong>{{ "%.2f"|format(bilans) }} zł</strong>
+                    </div>
+                </li>
             </ul>
 
             <h2 class="mt-4">Dodaj transakcję</h2>

@@ -18,38 +18,47 @@ def get_db_connection():
 
 @app.route('/')
 def index():
-    # --- NOWA CZĘŚĆ: ODCZYT WYBRANEGO OKRESU ---
-    # Pobieramy rok i miesiąc z parametrów URL (np. /?rok=2025&miesiac=8)
-    # Jeśli ich nie ma, używamy bieżącego roku i miesiąca jako domyślnych.
+    # --- Odczyt wybranego okresu (bez zmian) ---
     try:
         selected_year = int(request.args.get('rok', date.today().year))
         selected_month = int(request.args.get('miesiac', date.today().month))
     except (ValueError, TypeError):
         selected_year = date.today().year
         selected_month = date.today().month
-    # -------------------------------------------
-
+    
     conn = get_db_connection()
 
-    kategorie = conn.execute('SELECT * FROM kategorie ORDER BY nazwa').fetchall()
-
-    # --- OBLICZENIA DO DASHBOARDU (teraz używają wybranych zmiennych) ---
-    przychody_cursor = conn.execute(
-        "SELECT SUM(kwota) FROM transakcje WHERE kwota > 0 AND strftime('%Y-%m', data) = ?",
-        (f"{selected_year}-{selected_month:02d}",)
-    ).fetchone()
+    # --- Obliczenia dla WYBRANEGO miesiąca (bez zmian) ---
+    przychody_cursor = conn.execute("SELECT SUM(kwota) FROM transakcje WHERE kwota > 0 AND strftime('%Y-%m', data) = ?", (f"{selected_year}-{selected_month:02d}",)).fetchone()
     total_przychody = przychody_cursor[0] if przychody_cursor[0] is not None else 0
 
-    wydatki_cursor = conn.execute(
-        "SELECT SUM(kwota) FROM transakcje WHERE kwota < 0 AND strftime('%Y-%m', data) = ?",
-        (f"{selected_year}-{selected_month:02d}",)
-    ).fetchone()
+    wydatki_cursor = conn.execute("SELECT SUM(kwota) FROM transakcje WHERE kwota < 0 AND strftime('%Y-%m', data) = ?", (f"{selected_year}-{selected_month:02d}",)).fetchone()
     total_wydatki = wydatki_cursor[0] if wydatki_cursor[0] is not None else 0
-    
     bilans = total_przychody + total_wydatki
-    # -------------------------------------------------------------------
+    
+    # --- NOWA CZĘŚĆ: Obliczenia dla POPRZEDNIEGO miesiąca ---
+    # Obliczamy, jaki był poprzedni miesiąc i rok
+    prev_month = selected_month - 1
+    prev_year = selected_year
+    if prev_month == 0:
+        prev_month = 12
+        prev_year -= 1
 
-    # --- DANE DO WYKRESU (teraz też używają wybranych zmiennych) ---
+    # Pobieramy dane dla poprzedniego miesiąca
+    poprzednie_przychody_cursor = conn.execute("SELECT SUM(kwota) FROM transakcje WHERE kwota > 0 AND strftime('%Y-%m', data) = ?", (f"{prev_year}-{prev_month:02d}",)).fetchone()
+    poprzednie_total_przychody = poprzednie_przychody_cursor[0] if poprzednie_przychody_cursor[0] is not None else 0
+
+    poprzednie_wydatki_cursor = conn.execute("SELECT SUM(kwota) FROM transakcje WHERE kwota < 0 AND strftime('%Y-%m', data) = ?", (f"{prev_year}-{prev_month:02d}",)).fetchone()
+    poprzednie_total_wydatki = poprzednie_wydatki_cursor[0] if poprzednie_wydatki_cursor[0] is not None else 0
+    poprzedni_bilans = poprzednie_total_przychody + poprzednie_total_wydatki
+
+    # Obliczamy różnice
+    roznica_wydatki = total_wydatki - poprzednie_total_wydatki
+    roznica_bilans = bilans - poprzedni_bilans
+    # ----------------------------------------------------------------
+
+    # --- Reszta funkcji (dane do wykresu, lista transakcji) bez zmian ---
+    # ... (kod dla danych do wykresu i listy transakcji) ...
     query = "SELECT kategoria, kwota FROM transakcje WHERE kwota < 0 AND strftime('%Y-%m', data) = ?"
     params = (f"{selected_year}-{selected_month:02d}",)
     df_wydatki = pd.read_sql_query(query, conn, params=params)
@@ -62,18 +71,13 @@ def index():
     else:
         chart_labels = []
         chart_values = []
-    # -------------------------------------------------------------
-
-    # --- LISTA TRANSAKCJI (teraz też używa wybranych zmiennych) ---
-    transakcje = conn.execute(
-        "SELECT * FROM transakcje WHERE strftime('%Y-%m', data) = ? ORDER BY data DESC, id DESC",
-        (f"{selected_year}-{selected_month:02d}",)
-    ).fetchall()
-    # -------------------------------------------------------------
     
+    kategorie = conn.execute('SELECT * FROM kategorie ORDER BY nazwa').fetchall()
+
+    transakcje = conn.execute("SELECT * FROM transakcje WHERE strftime('%Y-%m', data) = ? ORDER BY data DESC, id DESC", (f"{selected_year}-{selected_month:02d}",)).fetchall()
     conn.close()
     
-    # Przekazujemy do szablonu wszystkie potrzebne dane, w tym te do formularza wyboru
+    # Przekazujemy do szablonu nowe zmienne z różnicami
     return render_template(
         'index.html', 
         transakcje=transakcje,
@@ -82,9 +86,11 @@ def index():
         bilans=bilans,
         chart_labels=chart_labels,
         chart_values=chart_values,
-        selected_year=selected_year,     # <-- NOWE
-        selected_month=selected_month,    # <-- NOWE
-        kategorie=kategorie
+        selected_year=selected_year,
+        selected_month=selected_month,
+        kategorie=kategorie,
+        roznica_wydatki=roznica_wydatki, # <-- NOWE
+        roznica_bilans=roznica_bilans    # <-- NOWE
     )
 
 @app.route('/add', methods=['POST'])
@@ -287,6 +293,45 @@ def retirement_goal_page():
         chart_values=[]
     )
 # ------------------------------------------------
+
+@app.route('/raporty')
+def reports_page():
+    conn = get_db_connection()
+
+    # To zapytanie SQL grupuje wszystkie transakcje po miesiącu,
+    # a następnie dla każdego miesiąca oblicza sumę przychodów i wydatków.
+    query = """
+        SELECT
+            strftime('%Y-%m', data) as miesiac,
+            SUM(CASE WHEN kwota > 0 THEN kwota ELSE 0 END) as przychody,
+            SUM(CASE WHEN kwota < 0 THEN kwota ELSE 0 END) as wydatki
+        FROM transakcje
+        GROUP BY miesiac
+        ORDER BY miesiac DESC
+        LIMIT 12
+    """
+    # Używamy Pandas do wczytania i przetworzenia danych
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+
+    # Obliczamy bilans dla każdego miesiąca
+    df['bilans'] = df['przychody'] + df['wydatki']
+    
+    # Odwracamy kolejność danych, aby na wykresie były od najstarszego do najnowszego
+    df = df.iloc[::-1]
+
+    # Przygotowujemy listy z danymi, które wyślemy do szablonu
+    chart_labels = df['miesiac'].tolist()
+    chart_values = df['bilans'].tolist()
+
+    # Musimy też przekazać puste dane dla wykresu kołowego z base.html
+    # żeby uniknąć błędu, który mieliśmy wcześniej.
+    return render_template(
+        'raporty.html',
+        chart_labels=chart_labels,
+        chart_values=chart_values
+    )
+# ----------------------------------------------------
 
 if __name__ == '__main__':
     # Sprawdzamy, czy serwer nie jest w trybie przeładowania
