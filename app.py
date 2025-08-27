@@ -95,15 +95,27 @@ def index():
 
 @app.route('/add', methods=['POST'])
 def add_transaction():
+    # Pobieramy dane z formularza
     opis = request.form['opis']
     kwota = request.form['kwota']
     kategoria = request.form['kategoria']
-    dzisiejsza_data = date.today()
+    
+    # --- NOWA LOGIKA OBSŁUGI DATY ---
+    data_str = request.form['data'] # Pobieramy datę jako tekst
+    
+    # Jeśli użytkownik nie podał daty (tekst jest pusty), użyj dzisiejszej.
+    # W przeciwnym razie, użyj daty z formularza.
+    if not data_str:
+        transakcja_data = date.today()
+    else:
+        transakcja_data = date.fromisoformat(data_str)
+    # ------------------------------------
 
     conn = get_db_connection()
     conn.execute(
+        # Używamy nowej zmiennej 'transakcja_data' do zapisu w bazie
         "INSERT INTO transakcje (opis, kwota, kategoria, data) VALUES (?, ?, ?, ?)",
-        (opis, kwota, kategoria, dzisiejsza_data)
+        (opis, kwota, kategoria, transakcja_data)
     )
     conn.commit()
     conn.close()
@@ -132,20 +144,18 @@ def edit_transaction(id):
 # --- NOWA FUNKCJA DO ZAPISYWANIA ZMIAN ---
 @app.route('/update/<int:id>', methods=['POST'])
 def update_transaction(id):
-    # Pobieramy zaktualizowane dane z formularza
     opis = request.form['opis']
     kwota = request.form['kwota']
     kategoria = request.form['kategoria']
+    transakcja_data = date.fromisoformat(request.form['data']) # <-- NOWA LINIA
 
     conn = get_db_connection()
-    # Wykonujemy polecenie SQL UPDATE, aby zaktualizować wiersz o konkretnym id
     conn.execute(
-        'UPDATE transakcje SET opis = ?, kwota = ?, kategoria = ? WHERE id = ?',
-        (opis, kwota, kategoria, id)
+        'UPDATE transakcje SET opis = ?, kwota = ?, kategoria = ?, data = ? WHERE id = ?', # <-- DODAJ 'data = ?'
+        (opis, kwota, kategoria, transakcja_data, id) # <-- DODAJ 'transakcja_data'
     )
     conn.commit()
     conn.close()
-    # Po aktualizacji przekierowujemy użytkownika z powrotem na stronę główną
     return redirect(url_for('index'))
 
 # Wyświetla stronę z listą kategorii i formularzem do dodawania nowych

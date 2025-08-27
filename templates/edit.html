@@ -8,6 +8,10 @@
     <h1>Edytuj Transakcję</h1>
 
     <form action="{{ url_for('update_transaction', id=transakcja['id']) }}" method="POST">
+
+        <label for="data">Data:</label><br>
+        <input type="date" id="data" name="data" value="{{ transakcja['data'] }}" required><br><br>
+
         <label for="opis">Opis:</label><br>
         <input type="text" id="opis" name="opis" value="{{ transakcja['opis'] }}" required><br><br>
 

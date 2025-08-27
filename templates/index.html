@@ -67,6 +67,10 @@
             <h2 class="mt-4">Dodaj transakcję</h2>
             <form action="/add" method="POST">
                 <div class="mb-3">
+                    <label for="data" class="form-label">Data transakcji:</label>
+                    <input type="date" id="data" name="data" class="form-control">
+                </div>
+                <div class="mb-3">
                     <label for="opis" class="form-label">Opis:</label>
                     <input type="text" id="opis" name="opis" class="form-control" required>
                 </div>
