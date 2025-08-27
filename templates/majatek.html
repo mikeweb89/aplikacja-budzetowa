@@ -6,10 +6,16 @@
         <h2>Podsumowanie</h2>
         <div class="card mb-4">
             <ul class="list-group list-group-flush">
+                <li class="list-group-item">Suma Aktywów (Płynnych): <strong>{{ "%.2f"|format(aktywa_płynne) }} zł</strong></li>
                 <li class="list-group-item">Majątek Netto (Płynny): <strong>{{ "%.2f"|format(majatek_netto_plynny) }} zł</strong></li>
                 <li class="list-group-item">Wartość Nieruchomości: <strong>{{ "%.2f"|format(wartosc_nieruchomosci) }} zł</strong></li>
                 <li class="list-group-item active">Majątek Netto (Całkowity): <strong>{{ "%.2f"|format(majatek_netto_calkowity) }} zł</strong></li>
             </ul>
+            <div class="card-footer text-center">
+                <form action="{{ url_for('save_net_worth_snapshot') }}" method="POST">
+                    <button type="submit" class="btn btn-info">Zapisz stan na dziś (snapshot)</button>
+                </form>
+            </div>
         </div>
 
         <h4 class="mt-4">Dodaj Aktywa</h4>
@@ -39,9 +45,21 @@
             </div>
             <button type="submit" class="btn btn-danger btn-sm">Dodaj Pasywa</button>
         </form>
-    </div>
+        </div>
 
     <div class="col-md-8">
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <h4>Wzrost majątku netto w czasie</h4>
+                <canvas id="netWorthChart"></canvas>
+            </div>
+            <div class="col-lg-6 mb-4">
+                <h4>Spadek zadłużenia w czasie</h4>
+                <canvas id="debtChart"></canvas>
+            </div>
+        </div>
+        <hr>
+        
         <h2>Aktywa</h2>
         <table class="table table-sm table-hover">
             {% for a in aktywa %}
@@ -49,7 +67,7 @@
                 <td>{{ a['nazwa'] }} ({{ a['typ'] }})</td>
                 <td class="text-end">{{ "%.2f"|format(a['wartosc']) }} zł</td>
                 <td style="width: 50px;" class="text-center">
-                    <a href="{{ url_for('delete_asset', id=a['id']) }}" class="btn btn-outline-danger btn-sm">X</a>
+                    <a href="{{ url_for('delete_asset', id=a['id']) }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></a>
                 </td>
             </tr>
             {% endfor %}
@@ -62,11 +80,16 @@
                 <td>{{ p['nazwa'] }}</td>
                 <td class="text-end">-{{ "%.2f"|format(p['wartosc']) }} zł</td>
                 <td style="width: 50px;" class="text-center">
-                    <a href="{{ url_for('delete_liability', id=p['id']) }}" class="btn btn-outline-danger btn-sm">X</a>
+                    <a href="{{ url_for('delete_liability', id=p['id']) }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></a>
                 </td>
             </tr>
             {% endfor %}
         </table>
-    </div>
+        </div>
 </div>
+
+<script id="history-data" type="application/json">{{ {'labels': history_labels, 'net_worth': history_net_worth, 'debt': history_debt}|tojson }}</script>
+<script>
+    // ... (cały kod JavaScript bez zmian) ...
+</script>
 {% endblock %}

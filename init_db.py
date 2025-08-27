@@ -47,6 +47,19 @@ cursor.execute('''
 ''')
 # --------------------------------------------------
 
+# --- NOWA TABELA: Historia majątku netto ---
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS majatek_historia (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        data DATE NOT NULL,
+        aktywa_plynne REAL NOT NULL,
+        nieruchomosci REAL NOT NULL,
+        pasywa REAL NOT NULL,
+        majatek_netto_calkowity REAL NOT NULL
+    )
+''')
+# --------------------------------------------
+
 # Zapisujemy zmiany w bazie danych
 connection.commit()
 

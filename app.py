@@ -66,11 +66,11 @@ def index():
     if not df_wydatki.empty:
         df_wydatki['kwota'] = df_wydatki['kwota'].abs()
         wydatki_po_kategorii = df_wydatki.groupby('kategoria')['kwota'].sum().reset_index()
-        chart_labels = wydatki_po_kategorii['kategoria'].tolist()
-        chart_values = wydatki_po_kategorii['kwota'].tolist()
+        pie_chart_labels = wydatki_po_kategorii['kategoria'].tolist() # <-- ZMIANA NAZWY
+        pie_chart_values = wydatki_po_kategorii['kwota'].tolist()   # <-- ZMIANA NAZWY
     else:
-        chart_labels = []
-        chart_values = []
+        pie_chart_labels = [] # <-- ZMIANA NAZWY
+        pie_chart_values = []   # <-- ZMIANA NAZWY
     
     kategorie = conn.execute('SELECT * FROM kategorie ORDER BY nazwa').fetchall()
 
@@ -84,8 +84,8 @@ def index():
         total_przychody=total_przychody,
         total_wydatki=total_wydatki,
         bilans=bilans,
-        chart_labels=chart_labels,
-        chart_values=chart_values,
+        pie_chart_labels=pie_chart_labels, # <-- ZMIANA NAZWY
+        pie_chart_values=pie_chart_values,   # <-- ZMIANA NAZWY
         selected_year=selected_year,
         selected_month=selected_month,
         kategorie=kategorie,
@@ -192,33 +192,41 @@ def delete_category(id):
 @app.route('/majatek')
 def net_worth_page():
     conn = get_db_connection()
-
-    # Pobieramy aktywa i pasywa
     aktywa = conn.execute('SELECT * FROM aktywa').fetchall()
     pasywa = conn.execute('SELECT * FROM pasywa').fetchall()
 
     # Obliczamy sumy
     suma_aktywów = conn.execute('SELECT SUM(wartosc) FROM aktywa').fetchone()[0] or 0
     suma_pasywów = conn.execute('SELECT SUM(wartosc) FROM pasywa').fetchone()[0] or 0
-
     aktywa_płynne = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'płynne'").fetchone()[0] or 0
     wartosc_nieruchomosci = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'nieruchomość'").fetchone()[0] or 0
 
+    # Pobieramy dane historyczne do wykresów
+    historia = conn.execute('SELECT * FROM majatek_historia ORDER BY data ASC').fetchall()
     conn.close()
 
     # Obliczamy majątek netto
     majatek_netto_calkowity = suma_aktywów - suma_pasywów
     majatek_netto_plynny = aktywa_płynne - suma_pasywów
+    
+    # Przygotowujemy dane do wykresów
+    history_labels = [h['data'] for h in historia]
+    history_net_worth = [h['majatek_netto_calkowity'] for h in historia]
+    history_debt = [h['pasywa'] for h in historia]
 
     return render_template(
         'majatek.html',
         aktywa=aktywa,
+        aktywa_płynne=aktywa_płynne, # <-- DODAJ TĘ LINIĘ
         pasywa=pasywa,
         majatek_netto_plynny=majatek_netto_plynny,
         wartosc_nieruchomosci=wartosc_nieruchomosci,
         majatek_netto_calkowity=majatek_netto_calkowity,
-        chart_labels=[],
-        chart_values=[]
+        pie_chart_labels=[],  # Puste dane dla wykresu z base.html
+        pie_chart_values=[],  # Puste dane dla wykresu z base.html
+        history_labels=history_labels,
+        history_net_worth=history_net_worth,
+        history_debt=history_debt
     )
 # ------------------------------------------------
 
@@ -265,42 +273,55 @@ def delete_liability(id):
 
 # ----------------------------------------------------
 
-@app.route('/cel')
+@app.route('/cel-emerytalny')
 def retirement_goal_page():
+    # Ustawienia początkowe
+    wiek_obecny = 36
+    wiek_emerytalny = 65
+    cel = 1000000.0
+
+    # --- ZMIENIONA LOGIKA ---
+    # Pobieramy TYLKO sumę wszystkich aktywów o typie 'płynne'
     conn = get_db_connection()
-    # Pobieramy sumę tylko płynnych aktywów, ignorując pasywa
-    plynne_aktywa_cursor = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'płynne'").fetchone()
+    aktywa_plynne_cursor = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'płynne'").fetchone()
     conn.close()
 
-    # Zmienne
-    cel = 1000000
-    zebrane_srodki = plynne_aktywa_cursor[0] if plynne_aktywa_cursor[0] is not None else 0
-    
-    # Obliczenia
+    # To jest teraz nasza kwota "zebranych środków"
+    zebrane_srodki = aktywa_plynne_cursor[0] if aktywa_plynne_cursor[0] is not None else 0
+    # --- KONIEC ZMIENIONEJ LOGIKI ---
+
+    # Pozostałe obliczenia
     pozostalo = cel - zebrane_srodki
-    progres_procent = (zebrane_srodki / cel) * 100 if cel > 0 else 0
-    
-    # Obliczenie czasu do emerytury
-    data_urodzenia = date(1989, 6, 1)
-    dzisiaj = date.today()
-    wiek = dzisiaj.year - data_urodzenia.year - ((dzisiaj.month, dzisiaj.day) < (data_urodzenia.month, data_urodzenia.day))
-    
-    lata_do_emerytury = 65 - wiek
+    if pozostalo < 0:
+        pozostalo = 0
+
+    lata_do_emerytury = wiek_emerytalny - wiek_obecny
     miesiace_do_emerytury = lata_do_emerytury * 12
 
-    wymagane_oszczednosci = pozostalo / miesiace_do_emerytury if miesiace_do_emerytury > 0 else 0
+    if miesiace_do_emerytury > 0 and pozostalo > 0:
+        wymagane_oszczednosci = pozostalo / miesiace_do_emerytury
+    else:
+        wymagane_oszczednosci = 0
+
+    if cel > 0:
+        progres_procent = (zebrane_srodki / cel) * 100
+    else:
+        progres_procent = 100
+
+    if progres_procent > 100:
+        progres_procent = 100
 
     return render_template(
-        'cel.html',
+        'cel_emerytalny.html',
         cel=cel,
         zebrane_srodki=zebrane_srodki,
-        pozostalo=pozostalo,
         progres_procent=progres_procent,
+        pozostalo=pozostalo,
         lata_do_emerytury=lata_do_emerytury,
         miesiace_do_emerytury=miesiace_do_emerytury,
         wymagane_oszczednosci=wymagane_oszczednosci,
-        chart_labels=[],  # Puste dane dla wykresu, aby uniknąć błędu
-        chart_values=[]
+        pie_chart_labels=[],
+        pie_chart_values=[]
     )
 # ------------------------------------------------
 
@@ -337,10 +358,33 @@ def reports_page():
     # Musimy też przekazać puste dane dla wykresu kołowego z base.html
     # żeby uniknąć błędu, który mieliśmy wcześniej.
     return render_template(
-        'raporty.html',
-        chart_labels=chart_labels,
-        chart_values=chart_values
+    'raporty.html',
+    chart_labels=chart_labels,
+    chart_values=chart_values,
+    # Dodajemy puste dane dla wykresu kołowego z base.html,
+    # którego ta strona nie używa, ale szablon bazowy go wymaga.
+    pie_chart_labels=[],
+    pie_chart_values=[]
+)
+# ----------------------------------------------------
+# --- NOWA FUNKCJA: Zapisywanie snapshotu majątku ---
+@app.route('/majatek/snapshot', methods=['POST'])
+def save_net_worth_snapshot():
+    conn = get_db_connection()
+    # Obliczamy wszystkie sumy, tak jak na stronie /majatek
+    aktywa_płynne = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'płynne'").fetchone()[0] or 0
+    wartosc_nieruchomosci = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'nieruchomość'").fetchone()[0] or 0
+    suma_pasywów = conn.execute('SELECT SUM(wartosc) FROM pasywa').fetchone()[0] or 0
+    majatek_netto_calkowity = (aktywa_płynne + wartosc_nieruchomosci) - suma_pasywów
+    
+    # Zapisujemy obliczone wartości z dzisiejszą datą
+    conn.execute(
+        'INSERT INTO majatek_historia (data, aktywa_plynne, nieruchomosci, pasywa, majatek_netto_calkowity) VALUES (?, ?, ?, ?, ?)',
+        (date.today(), aktywa_płynne, wartosc_nieruchomosci, suma_pasywów, majatek_netto_calkowity)
     )
+    conn.commit()
+    conn.close()
+    return redirect(url_for('net_worth_page'))
 # ----------------------------------------------------
 
 if __name__ == '__main__':

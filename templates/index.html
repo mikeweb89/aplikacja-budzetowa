@@ -126,3 +126,74 @@
     
     
 {% endblock %}
+
+{% block scripts %}
+<script id="pie-chart-data" type="application/json">{{ {'labels': pie_chart_labels, 'values': pie_chart_values}|tojson }}</script>
+<script>
+    Chart.register(ChartDataLabels);
+    const chartDataSource = document.getElementById('pie-chart-data');
+    if (chartDataSource) {
+        const chartData = JSON.parse(chartDataSource.textContent);
+        const labels = chartData.labels;
+        const values = chartData.values;
+
+        const pieChartCanvas = document.getElementById('myPieChart');
+        if (pieChartCanvas && values && values.length > 0) {
+            const generateColors = (numColors) => {
+                const colors = [];
+                for (let i = 0; i < numColors; i++) {
+                    const hue = (i * (360 / (numColors + 1))) % 360;
+                    colors.push(`hsl(${hue}, 70%, 60%)`);
+                }
+                return colors;
+            };
+
+            const data = {
+                labels: labels,
+                datasets: [{
+                    label: 'Wydatki',
+                    data: values,
+                    backgroundColor: generateColors(labels.length),
+                    hoverOffset: 4
+                }]
+            };
+
+            const config = {
+                type: 'pie',
+                data: data,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }, // Wyłączamy domyślną legendę
+                        datalabels: {
+                            formatter: (value, context) => {
+                                const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                const percentage = (value / total * 100);
+                                if (percentage < 3) { return ''; }
+                                const label = context.chart.data.labels[context.dataIndex];
+                                return `${label}\n${percentage.toFixed(1)}%`;
+                            },
+                            color: '#fff',
+                            textAlign: 'center',
+                            font: { weight: 'bold', size: 14 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    const percentage = (value / total * 100).toFixed(1);
+                                    return `${label}: ${value.toFixed(2)} zł (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            new Chart(pieChartCanvas, config);
+        }
+    }
+</script>
+{% endblock %}
