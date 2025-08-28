@@ -1,69 +1,45 @@
 import sqlite3
 
-# Łączymy się z bazą danych o nazwie 'budget.db'
-# Jeśli plik nie istnieje, zostanie automatycznie stworzony.
 connection = sqlite3.connect('budget.db')
 cursor = connection.cursor()
 
-# Tworzymy tabelę o nazwie 'transakcje' z kolumnami:
-# id - unikalny numer, automatycznie zwiększany
-# opis, kwota, kategoria - dane z naszego formularza
-# data - data dodania transakcji
-# "IF NOT EXISTS" zapobiega błędowi, jeśli uruchomimy ten skrypt ponownie.
+# Tabela transakcji
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS transakcje (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        opis TEXT NOT NULL,
-        kwota REAL NOT NULL,
-        kategoria TEXT NOT NULL,
-        data DATE NOT NULL
+        id INTEGER PRIMARY KEY AUTOINCREMENT, opis TEXT NOT NULL,
+        kwota REAL NOT NULL, kategoria TEXT NOT NULL, data DATE NOT NULL
     )
 ''')
-
+# Tabela kategorii
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS kategorie (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nazwa TEXT NOT NULL UNIQUE
+        id INTEGER PRIMARY KEY AUTOINCREMENT, nazwa TEXT NOT NULL UNIQUE
     )
 ''')
-# ------------------------------------
-
-#------Tabele do śledzenia majątku netto ---
+# Tabela aktywów
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS aktywa (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nazwa TEXT NOT NULL,
-        wartosc REAL NOT NULL,
-        typ TEXT NOT NULL CHECK(typ IN ('płynne', 'nieruchomość'))
+        id INTEGER PRIMARY KEY AUTOINCREMENT, nazwa TEXT NOT NULL,
+        wartosc REAL NOT NULL, typ TEXT NOT NULL CHECK(typ IN ('płynne', 'nieruchomość'))
+    )
+''')
+# Tabela pasywów
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS pasywa (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, nazwa TEXT NOT NULL, wartosc REAL NOT NULL
     )
 ''')
 
+# NOWA, POPRAWIONA Tabela na historię aktywów
 cursor.execute('''
-    CREATE TABLE IF NOT EXISTS pasywa (
+    CREATE TABLE IF NOT EXISTS aktywa_historia (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nazwa TEXT NOT NULL,
+        data DATE NOT NULL,
+        nazwa TEXT NOT NULL,  -- <-- DODALIŚMY NAZWĘ
         wartosc REAL NOT NULL
     )
 ''')
-# --------------------------------------------------
 
-# --- NOWA TABELA: Historia majątku netto ---
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS majatek_historia (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        data DATE NOT NULL,
-        aktywa_plynne REAL NOT NULL,
-        nieruchomosci REAL NOT NULL,
-        pasywa REAL NOT NULL,
-        majatek_netto_calkowity REAL NOT NULL
-    )
-''')
-# --------------------------------------------
-
-# Zapisujemy zmiany w bazie danych
 connection.commit()
-
-# Zamykamy połączenie
 connection.close()
-
-print("Baza danych 'budget.db' i tabela 'transakcje' zostały pomyślnie stworzone.")
+print("Baza danych i wszystkie tabele zostały pomyślnie stworzone.")

@@ -192,41 +192,60 @@ def delete_category(id):
 @app.route('/majatek')
 def net_worth_page():
     conn = get_db_connection()
+    
+    # Pobieranie bieżących danych
     aktywa = conn.execute('SELECT * FROM aktywa').fetchall()
     pasywa = conn.execute('SELECT * FROM pasywa').fetchall()
-
-    # Obliczamy sumy
-    suma_aktywów = conn.execute('SELECT SUM(wartosc) FROM aktywa').fetchone()[0] or 0
     suma_pasywów = conn.execute('SELECT SUM(wartosc) FROM pasywa').fetchone()[0] or 0
     aktywa_płynne = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'płynne'").fetchone()[0] or 0
     wartosc_nieruchomosci = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'nieruchomość'").fetchone()[0] or 0
-
-    # Pobieramy dane historyczne do wykresów
-    historia = conn.execute('SELECT * FROM majatek_historia ORDER BY data ASC').fetchall()
-    conn.close()
-
-    # Obliczamy majątek netto
-    majatek_netto_calkowity = suma_aktywów - suma_pasywów
+    majatek_netto_calkowity = (aktywa_płynne + wartosc_nieruchomosci) - suma_pasywów
     majatek_netto_plynny = aktywa_płynne - suma_pasywów
+
+    # --- POPRAWKA POWINNA BYĆ TUTAJ ---
+    # Upewnij się, że zapytanie nie używa JOIN ani aktywa_id
+    query = "SELECT data, nazwa, wartosc FROM aktywa_historia"
+    df_historia = pd.read_sql_query(query, conn)
     
-    # Przygotowujemy dane do wykresów
-    history_labels = [h['data'] for h in historia]
-    history_net_worth = [h['majatek_netto_calkowity'] for h in historia]
-    history_debt = [h['pasywa'] for h in historia]
+    historia = conn.execute('SELECT * FROM majatek_historia ORDER BY data DESC').fetchall()
+    conn.close()
+    
+    # ... (reszta kodu z Pandas bez zmian) ...
+    chart_data = {}
+    total_liquid_assets_history = []
+    history_labels = []
+
+    if not df_historia.empty:
+        df_pivot = df_historia.pivot_table(index='data', columns='nazwa', values='wartosc', aggfunc='sum').fillna(method='ffill').fillna(0)
+        
+        if not df_pivot.empty:
+            nazwy_aktywów_płynnych = [a['nazwa'] for a in aktywa if a['typ'] == 'płynne']
+            kolumny_do_pokazania = [nazwa for nazwa in nazwy_aktywów_płynnych if nazwa in df_pivot.columns]
+
+            if kolumny_do_pokazania:
+                df_plynne_historia = df_pivot[kolumny_do_pokazania]
+                df_plynne_historia['Suma Płynnych'] = df_plynne_historia.sum(axis=1)
+                
+                chart_data = df_plynne_historia.to_dict('list')
+                total_liquid_assets_history = chart_data.pop('Suma Płynnych')
+                history_labels = sorted(list(df_plynne_historia.index))
+                
+                # Sortowanie
+                sorted_chart_data = {}
+                for name, values in chart_data.items():
+                    sorted_values = [v for _, v in sorted(zip(list(df_plynne_historia.index), values))]
+                    sorted_chart_data[name] = sorted_values
+                chart_data = sorted_chart_data
+                total_liquid_assets_history = [v for _, v in sorted(zip(list(df_plynne_historia.index), total_liquid_assets_history))]
 
     return render_template(
         'majatek.html',
-        aktywa=aktywa,
-        aktywa_płynne=aktywa_płynne, # <-- DODAJ TĘ LINIĘ
-        pasywa=pasywa,
-        majatek_netto_plynny=majatek_netto_plynny,
-        wartosc_nieruchomosci=wartosc_nieruchomosci,
-        majatek_netto_calkowity=majatek_netto_calkowity,
-        pie_chart_labels=[],  # Puste dane dla wykresu z base.html
-        pie_chart_values=[],  # Puste dane dla wykresu z base.html
-        history_labels=history_labels,
-        history_net_worth=history_net_worth,
-        history_debt=history_debt
+        aktywa=aktywa, pasywa=pasywa, aktywa_płynne=aktywa_płynne,
+        majatek_netto_plynny=majatek_netto_plynny, wartosc_nieruchomosci=wartosc_nieruchomosci,
+        majatek_netto_calkowity=majatek_netto_calkowity, pie_chart_labels=[], pie_chart_values=[],
+        history_labels=history_labels, history_datasets=chart_data,
+        total_assets_history=total_liquid_assets_history,
+        historia=historia
     )
 # ------------------------------------------------
 
@@ -371,22 +390,42 @@ def reports_page():
 @app.route('/majatek/snapshot', methods=['POST'])
 def save_net_worth_snapshot():
     conn = get_db_connection()
-    # Obliczamy wszystkie sumy, tak jak na stronie /majatek
-    aktywa_płynne = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'płynne'").fetchone()[0] or 0
-    wartosc_nieruchomosci = conn.execute("SELECT SUM(wartosc) FROM aktywa WHERE typ = 'nieruchomość'").fetchone()[0] or 0
-    suma_pasywów = conn.execute('SELECT SUM(wartosc) FROM pasywa').fetchone()[0] or 0
-    majatek_netto_calkowity = (aktywa_płynne + wartosc_nieruchomosci) - suma_pasywów
+    # Pobieramy wszystkie aktualne aktywa (teraz z nazwą)
+    aktualne_aktywa = conn.execute('SELECT nazwa, wartosc FROM aktywa').fetchall()
+    dzisiejsza_data = date.today()
+
+    for aktywo in aktualne_aktywa:
+        conn.execute(
+            # Zapisujemy teraz NAZWĘ, a nie ID
+            'INSERT INTO aktywa_historia (data, nazwa, wartosc) VALUES (?, ?, ?)',
+            (dzisiejsza_data, aktywo['nazwa'], aktywo['wartosc'])
+        )
     
-    # Zapisujemy obliczone wartości z dzisiejszą datą
-    conn.execute(
-        'INSERT INTO majatek_historia (data, aktywa_plynne, nieruchomosci, pasywa, majatek_netto_calkowity) VALUES (?, ?, ?, ?, ?)',
-        (date.today(), aktywa_płynne, wartosc_nieruchomosci, suma_pasywów, majatek_netto_calkowity)
-    )
     conn.commit()
     conn.close()
     return redirect(url_for('net_worth_page'))
 # ----------------------------------------------------
 
+@app.route('/majatek/edit_asset/<int:id>', methods=['POST'])
+def edit_asset(id):
+    nowa_wartosc = request.form.get('wartosc')
+    if nowa_wartosc:
+        conn = get_db_connection()
+        conn.execute('UPDATE aktywa SET wartosc = ? WHERE id = ?', (nowa_wartosc, id))
+        conn.commit()
+        conn.close()
+    return redirect(url_for('net_worth_page'))
+
+@app.route('/majatek/edit_liability/<int:id>', methods=['POST'])
+def edit_liability(id):
+    nowa_wartosc = request.form.get('wartosc')
+    if nowa_wartosc:
+        conn = get_db_connection()
+        conn.execute('UPDATE pasywa SET wartosc = ? WHERE id = ?', (nowa_wartosc, id))
+        conn.commit()
+        conn.close()
+    return redirect(url_for('net_worth_page'))
+# ----------------------------------------------------
 if __name__ == '__main__':
     # Sprawdzamy, czy serwer nie jest w trybie przeładowania
     if os.environ.get('WERKZEUG_RUN_MAIN') != 'true':
