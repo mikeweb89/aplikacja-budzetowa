@@ -390,17 +390,23 @@ def reports_page():
 @app.route('/majatek/snapshot', methods=['POST'])
 def save_net_worth_snapshot():
     conn = get_db_connection()
-    # Pobieramy wszystkie aktualne aktywa (teraz z nazwą)
-    aktualne_aktywa = conn.execute('SELECT nazwa, wartosc FROM aktywa').fetchall()
     dzisiejsza_data = date.today()
 
+    # --- KLUCZOWA ZMIANA: Usuwamy wszystkie istniejące wpisy z dzisiaj ---
+    # To zapobiega tworzeniu duplikatów przy wielokrotnym kliknięciu.
+    conn.execute('DELETE FROM aktywa_historia WHERE data = ?', (dzisiejsza_data,))
+    # --------------------------------------------------------------------
+
+    # Pobieramy wszystkie aktualne aktywa (to zostaje bez zmian)
+    aktualne_aktywa = conn.execute('SELECT nazwa, wartosc FROM aktywa').fetchall()
+
+    # Dla każdego aktywa zapisujemy jego wartość w tabeli historycznej
     for aktywo in aktualne_aktywa:
         conn.execute(
-            # Zapisujemy teraz NAZWĘ, a nie ID
             'INSERT INTO aktywa_historia (data, nazwa, wartosc) VALUES (?, ?, ?)',
             (dzisiejsza_data, aktywo['nazwa'], aktywo['wartosc'])
         )
-    
+
     conn.commit()
     conn.close()
     return redirect(url_for('net_worth_page'))
